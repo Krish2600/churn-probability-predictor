@@ -1,0 +1,30 @@
+body {
+    background: linear-gradient(to right, #6a11cb, #2575fc); /* Gradient background */
+    color: #333;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    margin: 0;
+}
+
+.container {
+    max-width: 800px;
+}
+
+.card {
+    border-radius: 15px;
+    border: none;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+}
+
+h1 {
+    color: #6a11cb;
+    font-weight: 700;
+}
+
+.btn-primary {
+    background-color: #2575fc;
+    border-color: #2575fc;
+}
