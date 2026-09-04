@@ -6,16 +6,16 @@ import os
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'super_secret_key_for_churn_predictor')
 
-# Define paths to model weights and scaler
+# Define paths to weights and scaler parameters
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 WEIGHTS_PATH = os.path.join(BASE_DIR, "model_weights.pkl")
+SCALER_PARAMS_PATH = os.path.join(BASE_DIR, "scaler_params.pkl")
 SCALER_PATH = os.path.join(BASE_DIR, "scaler.pkl")
-MODEL_H5_PATH = os.path.join(BASE_DIR, "churn_model.h5")
 
-# Global variables for weights, scaler, and optional Keras model
+# Global variables for weights and scaler parameters
 weights = None
-scaler = None
-keras_model = None
+scaler_params = None
+scaler_obj = None
 
 def relu(x):
     return np.maximum(0, x)
@@ -31,54 +31,36 @@ def numpy_nn_predict(scaled_features_array):
     out = sigmoid(np.dot(h2, w['W3']) + w['b3'])
     return float(out[0][0])
 
-def get_model_and_scaler():
-    """Lazily loads model weights and StandardScaler object into memory."""
-    global weights, scaler, keras_model
-    if (weights is not None or keras_model is not None) and scaler is not None:
+def load_engine():
+    """Lazily loads weights and scaler parameters into memory."""
+    global weights, scaler_params, scaler_obj
+    if (weights is not None or scaler_params is not None or scaler_obj is not None):
         return True
 
     try:
-        # Load Scaler
-        if os.path.exists(SCALER_PATH):
+        # 1. Load Scaler parameters
+        if os.path.exists(SCALER_PARAMS_PATH):
+            with open(SCALER_PARAMS_PATH, "rb") as f:
+                scaler_params = pickle.load(f)
+            print("[OK] Scaler parameters loaded for pure NumPy scaling.")
+        elif os.path.exists(SCALER_PATH):
             with open(SCALER_PATH, "rb") as f:
-                scaler = pickle.load(f)
+                scaler_obj = pickle.load(f)
+            print("[OK] StandardScaler object unpickled.")
 
-        # Load Weights for NumPy forward pass
+        # 2. Load Model Weights
         if os.path.exists(WEIGHTS_PATH):
             with open(WEIGHTS_PATH, "rb") as f:
                 weights = pickle.load(f)
             print("[OK] Neural network weights loaded for ultra-fast NumPy inference.")
             return True
-        
-        # Fallback to Keras if weights file is not found
-        if os.path.exists(MODEL_H5_PATH):
-            try:
-                from tensorflow.keras.models import load_model, Sequential
-                from tensorflow.keras.layers import Dense, Input
-                try:
-                    keras_model = load_model(MODEL_H5_PATH, compile=False)
-                except Exception:
-                    m = Sequential([
-                        Input(shape=(12,)),
-                        Dense(6, activation='relu'),
-                        Dense(6, activation='relu'),
-                        Dense(1, activation='sigmoid')
-                    ])
-                    m.load_weights(MODEL_H5_PATH)
-                    keras_model = m
-                print("[OK] Keras ANN model loaded into memory.")
-                return True
-            except Exception as e_keras:
-                print(f"[WARNING] Keras load attempt failed: {e_keras}")
-
-        print(f"[ERROR] Model files missing. SCALER: {os.path.exists(SCALER_PATH)}, WEIGHTS: {os.path.exists(WEIGHTS_PATH)}")
     except Exception as e:
-        print(f"[ERROR] Failed to load model or scaler: {e}")
+        print(f"[ERROR] Engine loading error: {e}")
 
     return False
 
-# Initial load on start
-get_model_and_scaler()
+# Load engine on startup
+load_engine()
 
 @app.route('/')
 def home():
@@ -87,83 +69,95 @@ def home():
 @app.route('/health', methods=['GET'])
 def health():
     """Health check endpoint for cloud deployments & load balancers."""
-    is_ready = get_model_and_scaler()
+    is_ready = load_engine()
     return jsonify({
         "status": "ok" if is_ready else "unhealthy",
-        "model_loaded": weights is not None or keras_model is not None,
-        "scaler_loaded": scaler is not None
+        "weights_loaded": weights is not None,
+        "scaler_loaded": scaler_params is not None or scaler_obj is not None
     }), 200 if is_ready else 503
 
-def process_features(form_data, scaler_obj):
-    """Sanitizes form input and extracts scaled features for model prediction."""
+def parse_input_data():
+    """Extracts parameters whether submitted as form-data or JSON."""
+    if request.is_json and request.get_json():
+        return request.get_json()
+    return request.form
+
+def process_and_scale_features(data):
+    """Sanitizes inputs and returns scaled feature array."""
     errors = []
 
-    credit_score_str = form_data.get('credit_score', '')
-    if not credit_score_str.isdigit():
-        errors.append("Credit Score must be a valid number.")
-    else:
-        credit_score = int(credit_score_str)
+    # 1. Credit Score
+    try:
+        credit_score = int(float(data.get('credit_score', 0)))
         if not (300 <= credit_score <= 850):
             errors.append("Credit Score must be between 300 and 850.")
+    except (ValueError, TypeError):
+        errors.append("Credit Score must be a valid number.")
 
-    geography = form_data.get('geography', '')
+    # 2. Geography
+    geography = str(data.get('geography', '')).strip()
     if geography not in ["France", "Spain", "Germany"]:
         errors.append("Invalid Geography selected.")
 
-    gender = form_data.get('gender', '')
+    # 3. Gender
+    gender = str(data.get('gender', '')).strip()
     if gender not in ["Male", "Female"]:
         errors.append("Invalid Gender selected.")
 
-    age_str = form_data.get('age', '')
-    if not age_str.isdigit():
-        errors.append("Age must be a valid number.")
-    else:
-        age = int(age_str)
+    # 4. Age
+    try:
+        age = int(float(data.get('age', 0)))
         if not (18 <= age <= 100):
             errors.append("Age must be between 18 and 100.")
+    except (ValueError, TypeError):
+        errors.append("Age must be a valid number.")
 
-    tenure_str = form_data.get('tenure', '')
-    if not tenure_str.isdigit():
-        errors.append("Tenure must be a valid number.")
-    else:
-        tenure = int(tenure_str)
+    # 5. Tenure
+    try:
+        tenure = int(float(data.get('tenure', 0)))
         if not (0 <= tenure <= 10):
             errors.append("Tenure must be between 0 and 10 years.")
+    except (ValueError, TypeError):
+        errors.append("Tenure must be a valid number.")
 
-    balance_str = form_data.get('balance', '')
+    # 6. Balance
     try:
-        balance = float(balance_str)
+        balance = float(data.get('balance', 0))
         if balance < 0:
             errors.append("Balance cannot be negative.")
-    except ValueError:
+    except (ValueError, TypeError):
         errors.append("Balance must be a valid number.")
 
-    num_products_str = form_data.get('num_products', '')
-    if not num_products_str.isdigit():
-        errors.append("Number of Products must be a valid number.")
-    else:
-        num_products = int(num_products_str)
+    # 7. Number of Products
+    try:
+        num_products = int(float(data.get('num_products', 1)))
         if not (1 <= num_products <= 4):
             errors.append("Number of Products must be between 1 and 4.")
+    except (ValueError, TypeError):
+        errors.append("Number of Products must be between 1 and 4.")
 
-    has_card_str = form_data.get('has_card', '0')
-    if not has_card_str.isdigit() or int(has_card_str) not in [0, 1]:
-        errors.append("Has Credit Card must be 0 or 1.")
-    else:
-        has_card = int(has_card_str)
-
-    is_active_str = form_data.get('is_active', '0')
-    if not is_active_str.isdigit() or int(is_active_str) not in [0, 1]:
-        errors.append("Is Active Member must be 0 or 1.")
-    else:
-        is_active = int(is_active_str)
-
-    salary_str = form_data.get('salary', '')
+    # 8. Has Credit Card
     try:
-        salary = float(salary_str)
+        has_card = int(float(data.get('has_card', 0)))
+        if has_card not in [0, 1]:
+            has_card = 1 if has_card > 0 else 0
+    except (ValueError, TypeError):
+        has_card = 0
+
+    # 9. Is Active Member
+    try:
+        is_active = int(float(data.get('is_active', 0)))
+        if is_active not in [0, 1]:
+            is_active = 1 if is_active > 0 else 0
+    except (ValueError, TypeError):
+        is_active = 0
+
+    # 10. Estimated Salary
+    try:
+        salary = float(data.get('salary', 0))
         if salary < 0:
             errors.append("Estimated Salary cannot be negative.")
-    except ValueError:
+    except (ValueError, TypeError):
         errors.append("Estimated Salary must be a valid number.")
 
     if errors:
@@ -171,53 +165,52 @@ def process_features(form_data, scaler_obj):
 
     # Geography encoding: France [1, 0, 0], Spain [0, 1, 0], Germany [0, 0, 1]
     if geography == "France":
-        geo = [1, 0, 0]
+        geo = [1.0, 0.0, 0.0]
     elif geography == "Spain":
-        geo = [0, 1, 0]
+        geo = [0.0, 1.0, 0.0]
     else:
-        geo = [0, 0, 1]
+        geo = [0.0, 0.0, 1.0]
 
     # Gender encoding: Male -> 1, Female -> 0
-    gender_val = 1 if gender == "Male" else 0
+    gender_val = 1.0 if gender == "Male" else 0.0
 
     features = geo + [
-        credit_score,
+        float(credit_score),
         gender_val,
-        age,
-        tenure,
-        balance,
-        num_products,
-        has_card,
-        is_active,
-        salary
+        float(age),
+        float(tenure),
+        float(balance),
+        float(num_products),
+        float(has_card),
+        float(is_active),
+        float(salary)
     ]
 
-    features_array = np.array(features).reshape(1, -1)
-    scaled_features = scaler_obj.transform(features_array)
+    features_array = np.array(features, dtype=np.float64).reshape(1, -1)
+
+    # Scaling via NumPy parameters or StandardScaler object
+    if scaler_params is not None:
+        scaled_features = (features_array - scaler_params['mean']) / scaler_params['scale']
+    elif scaler_obj is not None:
+        scaled_features = scaler_obj.transform(features_array)
+    else:
+        scaled_features = features_array
 
     return scaled_features, []
-
-def run_inference(scaled_features_array):
-    """Executes inference using NumPy forward pass or Keras model fallback."""
-    if weights is not None:
-        return numpy_nn_predict(scaled_features_array)
-    elif keras_model is not None:
-        return float(keras_model.predict(scaled_features_array)[0][0])
-    else:
-        raise RuntimeError("No prediction engine available.")
 
 @app.route('/api/predict', methods=['POST'])
 def api_predict():
     """REST API endpoint returning JSON predictions for modern AJAX apps."""
-    if not get_model_and_scaler():
+    if not load_engine():
         return jsonify({"success": False, "error": "Prediction model is currently unavailable."}), 503
 
     try:
-        scaled_features, errors = process_features(request.form, scaler)
+        data = parse_input_data()
+        scaled_features, errors = process_and_scale_features(data)
         if errors:
             return jsonify({"success": False, "error": " ".join(errors)}), 400
 
-        pred = run_inference(scaled_features)
+        pred = numpy_nn_predict(scaled_features)
         prob = round(float(pred) * 100, 2)
         result = "Customer will EXIT" if pred > 0.5 else "Customer will STAY"
         
@@ -236,18 +229,19 @@ def predict():
     if request.method == 'GET':
         return redirect(url_for('home'))
 
-    if not get_model_and_scaler():
+    if not load_engine():
         flash("Prediction service is currently unavailable. Please try again later.", "error")
         return redirect(url_for('home'))
 
     try:
-        scaled_features, errors = process_features(request.form, scaler)
+        data = parse_input_data()
+        scaled_features, errors = process_and_scale_features(data)
         if errors:
             for error in errors:
                 flash(error, "error")
             return render_template('index.html', form_data=request.form)
 
-        pred = run_inference(scaled_features)
+        pred = numpy_nn_predict(scaled_features)
         result = "Customer will EXIT" if pred > 0.5 else "Customer will STAY"
         prob = round(float(pred) * 100, 2)
 
