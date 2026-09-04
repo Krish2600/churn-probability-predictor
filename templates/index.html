@@ -3,185 +3,290 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Customer Churn Prediction</title>
-    <!-- Google Fonts - Poppins -->
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
-    <!-- Bootstrap CSS -->
+    <title>Customer Churn Probability Predictor | Deep Learning Dashboard</title>
+    
+    <!-- Google Fonts - Plus Jakarta Sans -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Bootstrap 5.3 CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <!-- Font Awesome for Icons -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
-    <!-- Custom CSS -->
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    
+    <!-- Font Awesome 6 Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Custom Glassmorphism CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
-    <header class="navbar navbar-expand-lg navbar-dark bg-dark fixed-top">
-        <div class="container">
-            <a class="navbar-brand" href="/">
-                <i class="fas fa-chart-line me-2"></i>Churn Predictor
-            </a>
-        </div>
-    </header>
 
-    <main class="container mt-5 pt-5">
+    <!-- Glass Navbar -->
+    <nav class="navbar navbar-expand-lg glass-nav fixed-top py-3">
+        <div class="container">
+            <a class="navbar-brand d-flex align-items-center gap-2" href="/">
+                <div class="bg-primary rounded-circle d-flex align-items-center justify-content-center" style="width: 38px; height: 38px;">
+                    <i class="fas fa-brain text-white"></i>
+                </div>
+                <span class="brand-gradient fs-4">ChurnPredict</span>
+            </a>
+            
+            <div class="d-flex align-items-center gap-3">
+                <span class="badge-soft d-none d-sm-inline-flex">
+                    <span class="spinner-grow spinner-grow-sm text-success me-1" role="status" style="width: 8px; height: 8px;"></span>
+                    Keras ANN v2.0 Active
+                </span>
+                <a href="https://github.com/Krish2600/churn-probability-predictor" target="_blank" class="btn btn-outline-light btn-sm rounded-pill px-3">
+                    <i class="fab fa-github me-1"></i> Repository
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Container -->
+    <main class="container my-5 pt-5 flex-grow-1">
+        
+        <!-- Hero Header -->
+        <div class="text-center my-4">
+            <div class="d-inline-flex align-items-center gap-2 badge-soft mb-3">
+                <i class="fas fa-chart-pie"></i> Customer Analytics & Retention AI
+            </div>
+            <h1 class="display-5 fw-bold brand-gradient mb-2">Customer Churn Predictor</h1>
+            <p class="text-secondary mx-auto" style="max-width: 620px;">
+                Evaluate customer churn likelihood in real-time using our multi-layer Artificial Neural Network (ANN).
+            </p>
+        </div>
+
+        <!-- Flashed Messages -->
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 {% for category, message in messages %}
-                    <div class="alert alert-{{ 'danger' if category == 'error' else 'info' }} alert-dismissible fade show" role="alert">
-                        {{ message }}
-                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    <div class="alert alert-{{ 'danger' if category == 'error' else 'info' }} alert-dismissible fade show glass-panel text-white border-0 mb-4" role="alert">
+                        <i class="fas fa-exclamation-circle me-2"></i> {{ message }}
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="alert" aria-label="Close"></button>
                     </div>
                 {% endfor %}
             {% endif %}
         {% endwith %}
-        <div class="card shadow-lg p-4 animated-card">
-            <h1 class="text-center mb-4 card-title-custom">
-                <i class="fas fa-user-slash me-2"></i>Customer Churn Prediction
-            </h1>
-            <form action="/predict" method="post" class="needs-validation" novalidate>
-                <div class="row g-3 mb-3">
-                    <div class="col-md-6">
-                        <div class="form-floating">
-                            <input type="number" class="form-control" id="credit_score" name="credit_score" placeholder="Credit Score" required value="{{ form_data.credit_score if form_data else '' }}">
-                            <label for="credit_score">Credit Score</label>
-                            <div class="invalid-feedback">
-                                Please enter a valid credit score.
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-6">
-                        <div class="form-floating">
-                            <select class="form-select" id="geography" name="geography" required>
-                                <option value="" disabled {% if not form_data or not form_data.geography %}selected{% endif %}>Select Geography</option>
-                                <option value="France" {% if form_data and form_data.geography == 'France' %}selected{% endif %}>France</option>
-                                <option value="Spain" {% if form_data and form_data.geography == 'Spain' %}selected{% endif %}>Spain</option>
-                                <option value="Germany" {% if form_data and form_data.geography == 'Germany' %}selected{% endif %}>Germany</option>
-                            </select>
-                            <label for="geography">Geography</label>
-                            <div class="invalid-feedback">
-                                Please select a geography.
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="row g-3 mb-3">
-                    <div class="col-md-6">
-                        <div class="form-floating">
-                            <select class="form-select" id="gender" name="gender" required>
-                                <option value="" disabled {% if not form_data or not form_data.gender %}selected{% endif %}>Select Gender</option>
-                                <option value="Male" {% if form_data and form_data.gender == 'Male' %}selected{% endif %}>Male</option>
-                                <option value="Female" {% if form_data and form_data.gender == 'Female' %}selected{% endif %}>Female</option>
-                            </select>
-                            <label for="gender">Gender</label>
-                            <div class="invalid-feedback">
-                                Please select a gender.
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-6">
-                        <div class="form-floating">
-                            <input type="number" class="form-control" id="age" name="age" placeholder="Age" required value="{{ form_data.age if form_data else '' }}">
-                            <label for="age">Age</label>
-                            <div class="invalid-feedback">
-                                Please enter a valid age.
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="row g-3 mb-3">
-                    <div class="col-md-6">
-                        <div class="form-floating">
-                            <input type="number" class="form-control" id="tenure" name="tenure" placeholder="Tenure (Years)" required value="{{ form_data.tenure if form_data else '' }}">
-                            <label for="tenure">Tenure (Years)</label>
-                            <div class="invalid-feedback">
-                                Please enter a valid tenure.
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-6">
-                        <div class="form-floating">
-                            <input type="number" step="0.01" class="form-control" id="balance" name="balance" placeholder="Balance" required value="{{ form_data.balance if form_data else '' }}">
-                            <label for="balance">Balance</label>
-                            <div class="invalid-feedback">
-                                Please enter a valid balance.
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="row g-3 mb-3">
-                    <div class="col-md-6">
-                        <div class="form-floating">
-                            <input type="number" class="form-control" id="num_products" name="num_products" placeholder="Number of Products" required value="{{ form_data.num_products if form_data else '' }}">
-                            <label for="num_products">Number of Products</label>
-                            <div class="invalid-feedback">
-                                Please enter the number of products.
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-6">
-                        <div class="form-floating">
-                            <input type="number" class="form-control" id="has_card" name="has_card" min="0" max="1" placeholder="Has Credit Card? (1 for Yes, 0 for No)" required value="{{ form_data.has_card if form_data else '' }}">
-                            <label for="has_card">Has Credit Card? (1 for Yes, 0 for No)</label>
-                            <div class="invalid-feedback">
-                                Please enter 0 or 1.
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="row g-3 mb-4">
-                    <div class="col-md-6">
-                        <div class="form-floating">
-                            <input type="number" class="form-control" id="is_active" name="is_active" min="0" max="1" placeholder="Is Active Member? (1 for Yes, 0 for No)" required value="{{ form_data.is_active if form_data else '' }}">
-                            <label for="is_active">Is Active Member? (1 for Yes, 0 for No)</label>
-                            <div class="invalid-feedback">
-                                Please enter 0 or 1.
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-6">
-                        <div class="form-floating">
-                            <input type="number" step="0.01" class="form-control" id="salary" name="salary" placeholder="Estimated Salary" required value="{{ form_data.salary if form_data else '' }}">
-                            <label for="salary">Estimated Salary</label>
-                            <div class="invalid-feedback">
-                                Please enter a valid estimated salary.
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <button type="submit" class="btn btn-primary w-100 btn-lg submit-btn">Predict Churn</button>
-            </form>
-            {% if prediction_text %}
-                <div class="alert alert-info mt-4 text-center prediction-result animated-result" role="alert">
-                    <h3>{{ prediction_text }}</h3>
-                    <p>Churn Probability: <strong>{{ probability }}%</strong></p>
-                </div>
-            {% endif %}
+
+        <!-- Preset Customer Selector Bar -->
+        <div class="glass-panel p-3 mb-4 d-flex align-items-center justify-content-between flex-wrap gap-2">
+            <span class="text-secondary small fw-bold text-uppercase tracking-wider">
+                <i class="fas fa-magic text-primary me-1"></i> Quick Test Profiles:
+            </span>
+            <div class="d-flex flex-wrap gap-2">
+                <button type="button" class="preset-btn" data-preset="highRisk">
+                    <i class="fas fa-user-times text-danger me-1"></i> High Risk Sample
+                </button>
+                <button type="button" class="preset-btn" data-preset="moderate">
+                    <i class="fas fa-user-clock text-warning me-1"></i> Moderate Risk
+                </button>
+                <button type="button" class="preset-btn" data-preset="loyal">
+                    <i class="fas fa-user-check text-success me-1"></i> Loyal Customer
+                </button>
+            </div>
         </div>
+
+        <div class="row g-4">
+            <!-- Form Input Panel -->
+            <div class="col-lg-7">
+                <div class="glass-panel p-4 p-md-5">
+                    <form id="churnForm" action="/predict" method="post" class="needs-validation" novalidate>
+                        
+                        <!-- Hidden Inputs for Checkbox State Sync -->
+                        <input type="hidden" id="has_card" name="has_card" value="{{ form_data.has_card if form_data else '1' }}">
+                        <input type="hidden" id="is_active" name="is_active" value="{{ form_data.is_active if form_data else '1' }}">
+
+                        <!-- Section 1: Demographics -->
+                        <div class="section-title">
+                            <i class="fas fa-user text-primary"></i> 1. Customer Profile
+                        </div>
+                        
+                        <div class="row g-3 mb-4">
+                            <div class="col-md-4">
+                                <label for="geography" class="form-label">Geography</label>
+                                <select class="form-select glass-select" id="geography" name="geography" required>
+                                    <option value="" disabled {% if not form_data or not form_data.geography %}selected{% endif %}>Select Country</option>
+                                    <option value="France" {% if form_data and form_data.geography == 'France' %}selected{% endif %}>France 🇫🇷</option>
+                                    <option value="Spain" {% if form_data and form_data.geography == 'Spain' %}selected{% endif %}>Spain 🇪🇸</option>
+                                    <option value="Germany" {% if form_data and form_data.geography == 'Germany' %}selected{% endif %}>Germany 🇩🇪</option>
+                                </select>
+                            </div>
+                            
+                            <div class="col-md-4">
+                                <label for="gender" class="form-label">Gender</label>
+                                <select class="form-select glass-select" id="gender" name="gender" required>
+                                    <option value="" disabled {% if not form_data or not form_data.gender %}selected{% endif %}>Select Gender</option>
+                                    <option value="Female" {% if form_data and form_data.gender == 'Female' %}selected{% endif %}>Female</option>
+                                    <option value="Male" {% if form_data and form_data.gender == 'Male' %}selected{% endif %}>Male</option>
+                                </select>
+                            </div>
+
+                            <div class="col-md-4">
+                                <label for="age" class="form-label">Age (Years)</label>
+                                <input type="number" class="form-control glass-input" id="age" name="age" min="18" max="100" placeholder="e.g. 42" required value="{{ form_data.age if form_data else '' }}">
+                            </div>
+                        </div>
+
+                        <!-- Section 2: Financial Metrics -->
+                        <div class="section-title">
+                            <i class="fas fa-wallet text-info"></i> 2. Financial Metrics
+                        </div>
+                        
+                        <div class="row g-3 mb-4">
+                            <div class="col-md-4">
+                                <label for="credit_score" class="form-label">Credit Score</label>
+                                <input type="number" class="form-control glass-input" id="credit_score" name="credit_score" min="300" max="850" placeholder="300 - 850" required value="{{ form_data.credit_score if form_data else '' }}">
+                            </div>
+                            
+                            <div class="col-md-4">
+                                <label for="balance" class="form-label">Account Balance ($)</label>
+                                <input type="number" step="0.01" class="form-control glass-input" id="balance" name="balance" min="0" placeholder="0.00" required value="{{ form_data.balance if form_data else '' }}">
+                            </div>
+
+                            <div class="col-md-4">
+                                <label for="salary" class="form-label">Estimated Salary ($)</label>
+                                <input type="number" step="0.01" class="form-control glass-input" id="salary" name="salary" min="0" placeholder="e.g. 75000" required value="{{ form_data.salary if form_data else '' }}">
+                            </div>
+                        </div>
+
+                        <!-- Section 3: Engagement & Account Status -->
+                        <div class="section-title">
+                            <i class="fas fa-briefcase text-purple"></i> 3. Bank Engagement
+                        </div>
+                        
+                        <div class="row g-3 mb-4">
+                            <div class="col-md-6">
+                                <label for="tenure" class="form-label">Tenure (Years as Client)</label>
+                                <input type="number" class="form-control glass-input" id="tenure" name="tenure" min="0" max="10" placeholder="0 - 10 years" required value="{{ form_data.tenure if form_data else '' }}">
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <label for="num_products" class="form-label">Bank Products Held</label>
+                                <select class="form-select glass-select" id="num_products" name="num_products" required>
+                                    <option value="1" {% if form_data and form_data.num_products == '1' %}selected{% endif %}>1 Product</option>
+                                    <option value="2" {% if form_data and form_data.num_products == '2' %}selected{% endif %}>2 Products</option>
+                                    <option value="3" {% if form_data and form_data.num_products == '3' %}selected{% endif %}>3 Products</option>
+                                    <option value="4" {% if form_data and form_data.num_products == '4' %}selected{% endif %}>4 Products</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Switches for Binary Attributes -->
+                        <div class="row g-3 mb-4">
+                            <div class="col-md-6">
+                                <div class="toggle-switch-card">
+                                    <div>
+                                        <div class="fw-semibold text-white">Has Credit Card</div>
+                                        <div class="small text-secondary">Active bank credit card</div>
+                                    </div>
+                                    <div class="form-check form-switch mb-0">
+                                        <input class="form-check-input" type="checkbox" role="switch" id="has_card_cb" {% if not form_data or form_data.has_card == '1' %}checked{% endif %}>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <div class="toggle-switch-card">
+                                    <div>
+                                        <div class="fw-semibold text-white">Active Member</div>
+                                        <div class="small text-secondary">Regular banking activity</div>
+                                    </div>
+                                    <div class="form-check form-switch mb-0">
+                                        <input class="form-check-input" type="checkbox" role="switch" id="is_active_cb" {% if not form_data or form_data.is_active == '1' %}checked{% endif %}>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <button type="submit" id="submitBtn" class="btn btn-gradient w-100 mt-2">
+                            <span id="btnSpinner" class="spinner-border spinner-border-sm me-2 d-none" role="status" aria-hidden="true"></span>
+                            <span id="btnText"><i class="fas fa-calculator me-2"></i> Calculate Churn Probability</span>
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Results Dashboard Panel -->
+            <div class="col-lg-5">
+                <div id="resultCard" class="glass-panel p-4 p-md-5 text-center h-100 d-flex flex-column justify-content-between {% if not probability %}d-none{% endif %}" data-server-prob="{{ probability if probability else '' }}">
+                    
+                    <div>
+                        <div class="d-flex align-items-center justify-content-between mb-4">
+                            <span class="text-secondary small fw-bold text-uppercase">Prediction Result</span>
+                            <span id="riskBadge" class="risk-badge risk-low">
+                                <i id="riskBadgeIcon" class="fas fa-shield-alt me-2"></i>
+                                <span id="riskBadgeText">Low Churn Risk</span>
+                            </span>
+                        </div>
+
+                        <!-- Radial Donut Meter -->
+                        <div class="gauge-container my-4">
+                            <svg class="gauge-svg" viewBox="0 0 200 200">
+                                <circle class="gauge-bg" cx="100" cy="100" r="90"></circle>
+                                <circle id="gaugeFill" class="gauge-fill" cx="100" cy="100" r="90"></circle>
+                            </svg>
+                            <div class="gauge-center-text">
+                                <div id="gaugePercentage" class="gauge-percentage text-white">
+                                    {{ probability if probability else '0.0' }}%
+                                </div>
+                                <div class="gauge-label">Churn Risk</div>
+                            </div>
+                        </div>
+
+                        <p id="outcomeSummary" class="text-secondary small px-3">
+                            Evaluating neural model parameters...
+                        </p>
+                    </div>
+
+                    <!-- Additional Factor Breakdown -->
+                    <div class="mt-4 pt-3 border-top border-secondary border-opacity-25">
+                        <div class="text-start text-secondary small fw-bold mb-3 text-uppercase">Key Evaluation Drivers</div>
+                        <div class="vstack gap-2 text-start">
+                            <div class="factor-chip">
+                                <span class="text-secondary"><i class="fas fa-brain text-primary me-2"></i> Keras ANN Model</span>
+                                <span class="badge bg-primary bg-opacity-25 text-primary border border-primary border-opacity-25">Binary Sigmoid</span>
+                            </div>
+                            <div class="factor-chip">
+                                <span class="text-secondary"><i class="fas fa-sliders-h text-info me-2"></i> Feature Scaling</span>
+                                <span class="badge bg-info bg-opacity-25 text-info border border-info border-opacity-25">StandardScaler</span>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- Empty State Prompt when no result yet -->
+                <div id="emptyResultCard" class="glass-panel p-5 text-center h-100 d-flex flex-column align-items-center justify-content-center {% if probability %}d-none{% endif %}">
+                    <div class="bg-primary bg-opacity-10 text-primary rounded-circle d-flex align-items-center justify-content-center mb-3" style="width: 70px; height: 70px;">
+                        <i class="fas fa-chart-line fs-2"></i>
+                    </div>
+                    <h4 class="fw-bold text-white mb-2">Ready to Analyze</h4>
+                    <p class="text-secondary small max-w-xs">
+                        Select a quick test profile or fill in the customer metrics on the left to calculate real-time churn probability.
+                    </p>
+                </div>
+            </div>
+        </div>
+
     </main>
 
-    <footer class="footer mt-auto py-3 bg-dark">
-        <div class="container text-center">
-            <span class="text-muted">&copy; 2023 Churn Predictor. All rights reserved.</span>
+    <!-- Glass Footer -->
+    <footer class="py-3">
+        <div class="container text-center text-secondary small">
+            <div>Customer Churn Probability Predictor &copy; 2026. Production Ready Machine Learning System.</div>
+            <div class="mt-1 d-flex justify-content-center gap-3">
+                <span><i class="fab fa-python text-primary me-1"></i> Python 3.10+</span>
+                <span><i class="fas fa-fire text-warning me-1"></i> TensorFlow 2.x</span>
+                <span><i class="fas fa-flask text-success me-1"></i> Flask</span>
+            </div>
         </div>
     </footer>
 
-    <!-- Bootstrap Bundle with Popper -->
+    <!-- Bootstrap Bundle JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script>
-        // Bootstrap form validation
-        (function () {
-            'use strict'
-            var forms = document.querySelectorAll('.needs-validation')
-            Array.prototype.slice.call(forms)
-                .forEach(function (form) {
-                    form.addEventListener('submit', function (event) {
-                        if (!form.checkValidity()) {
-                            event.preventDefault()
-                            event.stopPropagation()
-                        }
-                        form.classList.add('was-validated')
-                    }, false)
-                })
-        })()
-    </script>
+    
+    <!-- Custom Application Logic JS -->
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
 </body>
 </html>

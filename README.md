@@ -2,12 +2,13 @@
 
 # 📊 Customer Churn Probability Predictor
 
-**An end-to-end Machine Learning web application leveraging Artificial Neural Networks (ANN) and Flask to predict bank customer retention and churn risk in real-time.**
+**An end-to-end Machine Learning web application leveraging Artificial Neural Networks (ANN) and Flask with a modern Glassmorphism dashboard to predict bank customer retention and churn risk in real-time.**
 
 [![Python Version](https://img.shields.io/badge/Python-3.9%2B-blue.svg?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
 [![TensorFlow](https://img.shields.io/badge/TensorFlow-2.x-FF6F00.svg?style=for-the-badge&logo=tensorflow&logoColor=white)](https://www.tensorflow.org/)
 [![Flask](https://img.shields.io/badge/Flask-3.x-000000.svg?style=for-the-badge&logo=flask&logoColor=white)](https://flask.palletsprojects.com/)
 [![Scikit-Learn](https://img.shields.io/badge/scikit--learn-F79A3E.svg?style=for-the-badge&logo=scikit-learn&logoColor=white)](https://scikit-learn.org/)
+[![Deploy on Render](https://img.shields.io/badge/Deploy%20to-Render-46E3B7.svg?style=for-the-badge&logo=render&logoColor=white)](https://render.com)
 [![License](https://img.shields.io/badge/License-MIT-green.svg?style=for-the-badge)](LICENSE)
 
 </div>
@@ -16,19 +17,20 @@
 
 ## 📌 Overview
 
-Customer churn is one of the most critical metrics for financial institutions and subscription businesses. This project provides a complete, production-ready solution to predict whether a bank customer will churn (**Exit**) or stay with the bank (**Stay**).
+Customer churn is a critical metric for financial institutions. This project provides a complete, production-grade solution to predict whether a bank customer will churn (**Exit**) or stay (**Stay**).
 
-Powered by a multi-layer **Artificial Neural Network (ANN)** built with Keras/TensorFlow, the system processes demographic, financial, and behavioral attributes to yield an accurate churn probability score alongside actionable prediction outcomes.
+Powered by a multi-layer **Artificial Neural Network (ANN)** built with Keras/TensorFlow, the system processes demographic, financial, and behavioral attributes to yield real-time churn probability scores displayed on an interactive **Glassmorphic Web Dashboard**.
 
 ---
 
 ## ✨ Key Features
 
-- 🧠 **Deep Learning Architecture**: Built using a multi-layer Sequential ANN optimized with the Adam optimizer and Binary Cross-Entropy loss.
-- ⚡ **Real-Time Web Inference**: Fast Flask web backend supporting instantaneous evaluation of customer profiles.
-- 🛡️ **Robust Server-Side Validation**: Sanitizes and validates user input ranges (e.g., Credit Score 300–850, Age 18–100, Balance checks) to ensure model safety.
-- 🔄 **Standardized Feature Pipeline**: One-Hot Encoding for categorical regions (`France`, `Spain`, `Germany`), Label Encoding for gender, and Z-score Feature Scaling with `StandardScaler`.
-- 💻 **Dual Execution Modes**: Interactive Web Dashboard (`app.py`) for end users and CLI Pipeline (`main.py`) for dataset training, evaluation, and serialized artifact generation.
+- 🧠 **Deep Learning Architecture**: Multi-layer Sequential ANN optimized with Adam optimizer and Binary Cross-Entropy loss.
+- 🎨 **Luxury Glassmorphism Dashboard**: Deep slate dark theme, SVG radial risk gauge meter, dynamic percentage count-up, and color-coded risk level badges (Low, Moderate, High).
+- ⚡ **1-Click Quick Presets**: Test preset customer profiles ("High Risk Sample", "Loyal Customer", "Moderate Risk") instantly with one click.
+- 🔄 **Async REST API & Modern UX**: Asynchronous predictions via `/api/predict` without page reloads, paired with standard HTML form POST fallback.
+- 🎛️ **Interactive Toggle Switches**: Replaces raw `0`/`1` inputs for binary attributes (*Has Credit Card*, *Is Active Member*) with smooth toggle switches.
+- 🚀 **Cloud Deployment Ready**: Built-in production WSGI support (`gunicorn`), `Procfile`, `render.yaml`, `Dockerfile`, `.slugignore`, and `/health` monitor.
 
 ---
 
@@ -36,47 +38,34 @@ Powered by a multi-layer **Artificial Neural Network (ANN)** built with Keras/Te
 
 ```mermaid
 graph TD
-    A[User Input / Form Data] --> B[Input Validation & Sanitization]
-    B --> C[Categorical Encoding One-Hot & Label]
-    C --> D[Feature Scaling StandardScaler]
-    D --> E[Keras Sequential ANN Model]
-    E --> F[Sigmoid Activation Function]
-    F --> G{Churn Probability Score}
-    G -- "Prob > 50%" --> H[Customer Will EXIT ❌]
-    G -- "Prob <= 50%" --> I[Customer Will STAY ✅]
+    A[User Input / Web Dashboard] -->|Async JSON / Form POST| B[Flask Server app.py]
+    B --> C[Sanitization & Input Validation]
+    C --> D[One-Hot & Label Encoding]
+    D --> E[StandardScaler Feature Normalization]
+    E --> F[Keras Sequential ANN Model]
+    F --> G[Sigmoid Output Activation]
+    G --> H{Churn Probability Score}
+    H -- "Prob > 50%" --> I[High Churn Risk / Customer Will Exit ❌]
+    H -- "Prob <= 50%" --> J[Low Churn Risk / Customer Will Stay ✅]
 ```
 
 ---
 
-## 📊 Dataset & Feature Dictionary
-
-The model is trained on the classic **Bank Customer Churn Dataset** (`Churn_Modelling.csv`), containing demographic and account information for 10,000 customers.
+## 📊 Feature Dictionary
 
 | Feature Name | Type | Description | Range / Values |
 | :--- | :--- | :--- | :--- |
 | `CreditScore` | Integer | Customer's credit score | 300 – 850 |
 | `Geography` | Categorical | Country of residence | France, Spain, Germany |
 | `Gender` | Categorical | Gender of customer | Male, Female |
-| `Age` | Integer | Customer age | 18 – 100 |
+| `Age` | Integer | Customer age | 18 – 100 years |
 | `Tenure` | Integer | Years as a bank customer | 0 – 10 years |
-| `Balance` | Float | Account balance | $\ge$ 0.00 |
+| `Balance` | Float | Account balance | $\ge$ $0.00 |
 | `NumOfProducts` | Integer | Number of bank products held | 1 – 4 |
-| `HasCrCard` | Binary | Possesses credit card | 0 = No, 1 = Yes |
-| `IsActiveMember` | Binary | Active membership status | 0 = No, 1 = Yes |
-| `EstimatedSalary` | Float | Estimated annual salary | $\ge$ 0.00 |
+| `HasCrCard` | Binary | Possesses credit card | Toggle Switch (0 = No, 1 = Yes) |
+| `IsActiveMember` | Binary | Active membership status | Toggle Switch (0 = No, 1 = Yes) |
+| `EstimatedSalary` | Float | Estimated annual salary | $\ge$ $0.00 |
 | **`Exited` (Target)** | Binary | Churn outcome | 0 = Stayed, 1 = Exited |
-
----
-
-## 🤖 Neural Network Specifications
-
-- **Input Layer**: 11 Transformed Features (3 One-Hot Geo + 8 Scaled Numerical/Categorical)
-- **Hidden Layer 1**: 6 Neurons, `ReLU` Activation
-- **Hidden Layer 2**: 6 Neurons, `ReLU` Activation
-- **Output Layer**: 1 Neuron, `Sigmoid` Activation (Outputs probability $P \in [0, 1]$)
-- **Optimizer**: `Adam`
-- **Loss Function**: `binary_crossentropy`
-- **Epochs**: 20 (Batch Size: 32)
 
 ---
 
@@ -84,17 +73,26 @@ The model is trained on the classic **Bank Customer Churn Dataset** (`Churn_Mode
 
 ```text
 PE2 Project/
+├── static/
+│   ├── css/
+│   │   └── style.css       # Luxury glassmorphism design system
+│   └── js/
+│       └── main.js         # Async AJAX, gauge animations & profile presets
 ├── templates/
-│   ├── index.html        # Glassmorphic web frontend UI
-│   └── style.css         # Styling stylesheet
-├── app.py                # Flask server application & API routes
-├── main.py               # ML Pipeline: Training, evaluation & artifact serialization
-├── Churn_Modelling.csv   # Bank Customer Churn dataset
-├── churn_model.h5        # Serialized Keras ANN model artifact
-├── scaler.pkl            # Serialized StandardScaler object
-├── encoder.pkl           # Serialized ColumnTransformer/Encoder object
-├── requirements.txt      # Python dependencies list
-└── README.md             # Project documentation
+│   └── index.html          # Interactive Glassmorphic Web Dashboard
+├── app.py                  # Flask Web backend, REST API & health routes
+├── main.py                 # ML Pipeline: Model training & artifact generation
+├── Churn_Modelling.csv     # Bank Customer Churn dataset
+├── churn_model.h5          # Serialized Keras ANN model artifact
+├── scaler.pkl              # Serialized StandardScaler object
+├── encoder.pkl             # Serialized OneHot/Label Encoder object
+├── requirements.txt        # Dependencies list (Flask, TensorFlow, Gunicorn)
+├── Procfile                # Heroku / Railway / Render WSGI start command
+├── render.yaml             # Render 1-click deployment configuration
+├── Dockerfile              # Containerization specification
+├── .dockerignore           # Excluded files for Docker build
+├── .slugignore             # Excluded files for lightweight cloud deployment
+└── README.md               # Project documentation
 ```
 
 ---
@@ -102,18 +100,15 @@ PE2 Project/
 ## 🚀 Quick Start Guide
 
 ### 1. Prerequisites
-Ensure you have Python **3.9+** installed on your system.
+Python **3.10+** installed.
 
-### 2. Clone Repository & Setup Environment
+### 2. Clone Repository & Setup Virtual Environment
 ```bash
-# Clone the repository
 git clone https://github.com/Krish2600/churn-probability-predictor.git
 cd churn-probability-predictor
 
-# Create virtual environment
 python -m venv venv
 
-# Activate virtual environment
 # Windows (PowerShell):
 .\venv\Scripts\Activate.ps1
 # macOS / Linux:
@@ -125,62 +120,71 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### 4. Train the Model (Optional)
-To retrain the ANN model on the dataset and regenerate `.h5` and `.pkl` artifacts:
-```bash
-python main.py
-```
-
-### 5. Launch the Web Application
+### 4. Launch Development Server
 ```bash
 python app.py
 ```
-Open your browser and navigate to **`http://127.0.0.1:5000/`**.
+Open **`http://127.0.0.1:5000`** in your browser.
 
 ---
 
-## 🌐 Web Application Usage
+## 🌐 Production Deployment Guide
 
-1. Open the web interface at `http://127.0.0.1:5000/`.
-2. Fill in the customer metrics:
-   - **Credit Score**: e.g., `650`
-   - **Geography**: Select `France`, `Spain`, or `Germany`
-   - **Gender**: Select `Male` or `Female`
-   - **Age**: e.g., `42`
-   - **Tenure**: e.g., `5` years
-   - **Balance**: e.g., `75000.00`
-   - **Number of Products**: `1` to `4`
-   - **Has Credit Card**: `1` (Yes) or `0` (No)
-   - **Active Member**: `1` (Yes) or `0` (No)
-   - **Estimated Salary**: e.g., `50000.00`
-3. Click **Predict Churn Risk**.
-4. The system calculates the risk score and displays the retention outcome:
-   - 🔴 **Customer will EXIT ❌** (Probability > 50%)
-   - 🟢 **Customer will STAY ✅** (Probability $\le$ 50%)
+### Option 1: Deploy on Render
+1. Push code to your GitHub repository.
+2. Log into [Render.com](https://render.com) and click **New + -> Web Service**.
+3. Connect your repository.
+4. Select **Environment: Python** and set:
+   - **Build Command**: `pip install -r requirements.txt`
+   - **Start Command**: `gunicorn app:app`
+5. Click **Create Web Service**.
 
----
+### Option 2: Deploy with Docker
+```bash
+# Build Docker image
+docker build -t churn-predictor:latest .
 
-## 🛠️ API & Endpoints
-
-| HTTP Method | Route | Description |
-| :--- | :--- | :--- |
-| `GET` | `/` | Renders the main prediction input dashboard |
-| `POST` | `/predict` | Validates input parameters, scales features, and returns churn risk prediction |
+# Run container on port 5000
+docker run -d -p 5000:5000 churn-predictor:latest
+```
 
 ---
 
-## 🤝 Contributing
+## 🛠️ API Reference
 
-Contributions, issues, and feature requests are welcome! Feel free to check the issues page.
+### Health Check Endpoint
+```http
+GET /health
+```
+**Response (200 OK)**:
+```json
+{
+  "status": "ok",
+  "model_loaded": true,
+  "scaler_loaded": true
+}
+```
 
-1. Fork the Project
-2. Create your Feature Branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your Changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the Branch (`git checkout -b feature/AmazingFeature`)
-5. Open a Pull Request
+### Churn Risk Prediction Endpoint
+```http
+POST /api/predict
+Content-Type: application/x-www-form-urlencoded
+```
+**Body Parameters**:
+`credit_score`, `geography`, `gender`, `age`, `tenure`, `balance`, `num_products`, `has_card`, `is_active`, `salary`
+
+**Response (200 OK)**:
+```json
+{
+  "success": true,
+  "probability": 72.4,
+  "prediction_text": "Customer will EXIT ❌",
+  "will_exit": true
+}
+```
 
 ---
 
 ## 📜 License
 
-Distributed under the **MIT License**. See `LICENSE` for more details.
+Distributed under the **MIT License**.

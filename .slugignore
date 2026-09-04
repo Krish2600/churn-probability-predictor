@@ -1,0 +1,5 @@
+venv/
+.git/
+*.md
+Churn_Modelling.csv
+main.py
