@@ -73,13 +73,41 @@ def health():
     }), 200 if is_ready else 503
 
 def parse_input_data():
-    """Extracts parameters whether submitted as form-data or JSON."""
-    if request.is_json and request.get_json():
-        return request.get_json()
-    return request.form
+    """Robustly extracts parameters whether submitted as Form-Data, Form-Encoded, or JSON."""
+    data_dict = {}
+    
+    # 1. Try parsing JSON
+    if request.is_json:
+        try:
+            j = request.get_json(silent=True)
+            if j and isinstance(j, dict):
+                data_dict.update(j)
+        except Exception:
+            pass
+
+    # 2. Try parsing Form Data
+    if request.form:
+        try:
+            data_dict.update(request.form.to_dict())
+        except Exception:
+            pass
+
+    # 3. Fallback to args
+    if request.args:
+        try:
+            data_dict.update(request.args.to_dict())
+        except Exception:
+            pass
+
+    return data_dict
 
 def process_and_scale_features(data):
     """Sanitizes inputs and returns scaled feature array using pure NumPy."""
+    global mean_vec, scale_vec
+    if mean_vec is None or scale_vec is None:
+        if not load_engine():
+            return None, ["Engine parameters could not be loaded."]
+
     errors = []
 
     # 1. Credit Score
@@ -189,6 +217,9 @@ def process_and_scale_features(data):
 
 def run_numpy_inference(scaled_features_array):
     """Executes ultra-fast 3-layer neural network forward pass using NumPy."""
+    global W1, b1, W2, b2, W3, b3
+    if W1 is None or b1 is None:
+        load_engine()
     h1 = relu(np.dot(scaled_features_array, W1) + b1)
     h2 = relu(np.dot(h1, W2) + b2)
     out = sigmoid(np.dot(h2, W3) + b3)
