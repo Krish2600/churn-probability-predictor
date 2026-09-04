@@ -4,6 +4,7 @@
 
 **An end-to-end Machine Learning web application leveraging Artificial Neural Networks (ANN) and Flask with a modern Glassmorphism dashboard to predict bank customer retention and churn risk in real-time.**
 
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-ChurnPredict-46E3B7.svg?style=for-the-badge&logo=render&logoColor=white)](https://churnpredict-5lq5.onrender.com)
 [![Python Version](https://img.shields.io/badge/Python-3.9%2B-blue.svg?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
 [![TensorFlow](https://img.shields.io/badge/TensorFlow-2.x-FF6F00.svg?style=for-the-badge&logo=tensorflow&logoColor=white)](https://www.tensorflow.org/)
 [![Flask](https://img.shields.io/badge/Flask-3.x-000000.svg?style=for-the-badge&logo=flask&logoColor=white)](https://flask.palletsprojects.com/)
