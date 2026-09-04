@@ -205,9 +205,12 @@ def api_predict():
     except Exception as e:
         return jsonify({"success": False, "error": f"Internal error during inference: {str(e)}"}), 500
 
-@app.route('/predict', methods=['POST'])
+@app.route('/predict', methods=['GET', 'POST'])
 def predict():
     """Form submission fallback route for standard HTML form post."""
+    if request.method == 'GET':
+        return redirect(url_for('home'))
+
     m, s = get_model_and_scaler()
     if m is None or s is None:
         flash("Prediction service is currently unavailable. Please try again later.", "error")
