@@ -10,6 +10,7 @@ document.addEventListener('DOMContentLoaded', function () {
     
     // Result Elements
     const resultCard = document.getElementById('resultCard');
+    const emptyResultCard = document.getElementById('emptyResultCard');
     const gaugeFill = document.getElementById('gaugeFill');
     const gaugePercentage = document.getElementById('gaugePercentage');
     const riskBadge = document.getElementById('riskBadge');
@@ -72,7 +73,7 @@ document.addEventListener('DOMContentLoaded', function () {
             document.getElementById('balance').value = data.balance;
             document.getElementById('num_products').value = data.num_products;
             
-            // Checkboxes
+            // Checkboxes & Hidden Inputs
             const hasCardCb = document.getElementById('has_card_cb');
             const isActiveCb = document.getElementById('is_active_cb');
             
@@ -87,7 +88,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
             document.getElementById('salary').value = data.salary;
 
-            // Trigger visual glow on form
+            // Visual feedback
             churnForm.classList.add('animate-fade-in');
             setTimeout(() => churnForm.classList.remove('animate-fade-in'), 500);
         });
@@ -110,7 +111,6 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Gauge Update Function
     function updateGauge(prob) {
-        // Circumference of circle with r=90 is ~565.48
         const maxOffset = 565;
         const offset = maxOffset - (maxOffset * (prob / 100));
         
@@ -140,7 +140,6 @@ document.addEventListener('DOMContentLoaded', function () {
         }
 
         if (gaugePercentage) {
-            // Count up animation
             let current = 0;
             const target = prob;
             const duration = 1000;
@@ -161,7 +160,7 @@ document.addEventListener('DOMContentLoaded', function () {
         if (riskBadge) {
             riskBadge.className = 'risk-badge ' + badgeClass;
             riskBadgeText.textContent = badgeText;
-            riskBadgeIcon.className = badgeIconClass;
+            if (riskBadgeIcon) riskBadgeIcon.className = badgeIconClass;
         }
 
         if (outcomeSummary) {
@@ -179,10 +178,14 @@ document.addEventListener('DOMContentLoaded', function () {
                 return;
             }
 
+            // Ensure switch values match checkbox state
+            if (hasCardCb) document.getElementById('has_card').value = hasCardCb.checked ? '1' : '0';
+            if (isActiveCb) document.getElementById('is_active').value = isActiveCb.checked ? '1' : '0';
+
             // UI Loading state
             submitBtn.disabled = true;
             btnText.textContent = 'Analyzing Neural Model...';
-            btnSpinner.classList.remove('d-none');
+            if (btnSpinner) btnSpinner.classList.remove('d-none');
 
             const formData = new FormData(churnForm);
 
@@ -190,23 +193,34 @@ document.addEventListener('DOMContentLoaded', function () {
                 method: 'POST',
                 body: formData
             })
-            .then(res => res.json())
+            .then(res => {
+                if (!res.ok) {
+                    return res.json().then(errData => {
+                        throw new Error(errData.error || 'Server error (' + res.status + ')');
+                    });
+                }
+                return res.json();
+            })
             .then(data => {
-                submitBtn.disabled = false;
-                btnText.textContent = 'Calculate Churn Probability';
-                btnSpinner.classList.add('d-none');
-
                 if (data.success) {
-                    resultCard.classList.remove('d-none');
-                    resultCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                    if (emptyResultCard) emptyResultCard.classList.add('d-none');
+                    if (resultCard) {
+                        resultCard.classList.remove('d-none');
+                        resultCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                    }
                     updateGauge(data.probability);
                 } else {
                     alert(data.error || 'Prediction failed. Please check your inputs.');
                 }
             })
             .catch(err => {
-                console.warn('AJAX request failed, submitting via standard POST fallback:', err);
-                churnForm.submit();
+                console.warn('AJAX request failed, fallbacking to POST submit:', err);
+                alert('Analysis request failed: ' + err.message);
+            })
+            .finally(() => {
+                submitBtn.disabled = false;
+                btnText.textContent = 'Calculate Churn Probability';
+                if (btnSpinner) btnSpinner.classList.add('d-none');
             });
         });
     }
@@ -214,7 +228,8 @@ document.addEventListener('DOMContentLoaded', function () {
     // Initial check if result card was rendered via server template fallback
     const serverProb = resultCard ? resultCard.dataset.serverProb : null;
     if (serverProb && !isNaN(parseFloat(serverProb))) {
-        resultCard.classList.remove('d-none');
+        if (emptyResultCard) emptyResultCard.classList.add('d-none');
+        if (resultCard) resultCard.classList.remove('d-none');
         updateGauge(parseFloat(serverProb));
     }
 });
