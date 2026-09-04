@@ -12,21 +12,38 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 MODEL_PATH = os.path.join(BASE_DIR, "churn_model.h5")
 SCALER_PATH = os.path.join(BASE_DIR, "scaler.pkl")
 
-# Load model and scaler only once when the app starts
+# Global variables for model and scaler
 model = None
 scaler = None
 
-try:
-    if os.path.exists(MODEL_PATH) and os.path.exists(SCALER_PATH):
-        model = load_model(MODEL_PATH)
-        scaler = pickle.load(open(SCALER_PATH, "rb"))
-        print("[OK] Model and scaler loaded successfully.")
-    else:
-        print("[WARNING] Model or scaler file not found!")
-except Exception as e:
-    print(f"[ERROR] Error loading model or scaler: {e}")
-    model = None
-    scaler = None
+def get_model_and_scaler():
+    """Lazily loads the Keras model and StandardScaler object."""
+    global model, scaler
+    if model is not None and scaler is not None:
+        return model, scaler
+
+    try:
+        if os.path.exists(MODEL_PATH) and os.path.exists(SCALER_PATH):
+            try:
+                model = load_model(MODEL_PATH, compile=False)
+            except Exception as e1:
+                print(f"[WARNING] load_model compile=False failed, attempting standard load: {e1}")
+                model = load_model(MODEL_PATH)
+
+            with open(SCALER_PATH, "rb") as f:
+                scaler = pickle.load(f)
+
+            print("[OK] Model and scaler loaded successfully into memory.")
+            return model, scaler
+        else:
+            print(f"[ERROR] Files not found. MODEL_PATH: {MODEL_PATH} ({os.path.exists(MODEL_PATH)}), SCALER_PATH: {SCALER_PATH} ({os.path.exists(SCALER_PATH)})")
+    except Exception as e:
+        print(f"[ERROR] Failed to load model or scaler: {e}")
+
+    return None, None
+
+# Attempt initial load on start
+get_model_and_scaler()
 
 @app.route('/')
 def home():
@@ -35,13 +52,14 @@ def home():
 @app.route('/health', methods=['GET'])
 def health():
     """Health check endpoint for cloud deployments & load balancers."""
+    m, s = get_model_and_scaler()
     return jsonify({
-        "status": "ok",
-        "model_loaded": model is not None,
-        "scaler_loaded": scaler is not None
-    }), 200
+        "status": "ok" if (m is not None and s is not None) else "unhealthy",
+        "model_loaded": m is not None,
+        "scaler_loaded": s is not None
+    }), 200 if (m is not None and s is not None) else 503
 
-def process_features(form_data):
+def process_features(form_data, scaler_obj):
     """Sanitizes form input and extracts scaled features for model prediction."""
     errors = []
 
@@ -140,22 +158,23 @@ def process_features(form_data):
     ]
 
     features_array = np.array(features).reshape(1, -1)
-    scaled_features = scaler.transform(features_array)
+    scaled_features = scaler_obj.transform(features_array)
 
     return scaled_features, []
 
 @app.route('/api/predict', methods=['POST'])
 def api_predict():
     """REST API endpoint returning JSON predictions for modern AJAX apps."""
-    if model is None or scaler is None:
+    m, s = get_model_and_scaler()
+    if m is None or s is None:
         return jsonify({"success": False, "error": "Prediction model is currently unavailable."}), 503
 
     try:
-        scaled_features, errors = process_features(request.form)
+        scaled_features, errors = process_features(request.form, s)
         if errors:
             return jsonify({"success": False, "error": " ".join(errors)}), 400
 
-        pred = model.predict(scaled_features)[0][0]
+        pred = m.predict(scaled_features)[0][0]
         prob = round(float(pred) * 100, 2)
         result = "Customer will EXIT" if pred > 0.5 else "Customer will STAY"
         
@@ -171,18 +190,19 @@ def api_predict():
 @app.route('/predict', methods=['POST'])
 def predict():
     """Form submission fallback route for standard HTML form post."""
-    if model is None or scaler is None:
+    m, s = get_model_and_scaler()
+    if m is None or s is None:
         flash("Prediction service is currently unavailable. Please try again later.", "error")
         return redirect(url_for('home'))
 
     try:
-        scaled_features, errors = process_features(request.form)
+        scaled_features, errors = process_features(request.form, s)
         if errors:
             for error in errors:
                 flash(error, "error")
             return render_template('index.html', form_data=request.form)
 
-        pred = model.predict(scaled_features)[0][0]
+        pred = m.predict(scaled_features)[0][0]
         result = "Customer will EXIT" if pred > 0.5 else "Customer will STAY"
         prob = round(float(pred) * 100, 2)
 
