@@ -2,65 +2,82 @@ from flask import Flask, render_template, request, flash, redirect, url_for, jso
 import numpy as np
 import pickle
 import os
-from tensorflow.keras.models import load_model, Sequential
-from tensorflow.keras.layers import Dense, Input
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'super_secret_key_for_churn_predictor')
 
-# Define paths to model and scaler
+# Define paths to model weights and scaler
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-MODEL_PATH = os.path.join(BASE_DIR, "churn_model.h5")
+WEIGHTS_PATH = os.path.join(BASE_DIR, "model_weights.pkl")
 SCALER_PATH = os.path.join(BASE_DIR, "scaler.pkl")
+MODEL_H5_PATH = os.path.join(BASE_DIR, "churn_model.h5")
 
-# Global variables for model and scaler
-model = None
+# Global variables for weights, scaler, and optional Keras model
+weights = None
 scaler = None
+keras_model = None
 
-def load_keras_model_safely(model_path):
-    """Loads Keras model using direct deserialization or fallback layer weight restoration."""
-    try:
-        return load_model(model_path, compile=False)
-    except Exception as e1:
-        print(f"[WARNING] Standard load_model failed ({e1}), using layer architecture fallback...")
-        
-    try:
-        m = Sequential([
-            Input(shape=(12,)),
-            Dense(units=6, activation='relu'),
-            Dense(units=6, activation='relu'),
-            Dense(units=1, activation='sigmoid')
-        ])
-        m.load_weights(model_path)
-        print("[OK] Keras model weights successfully restored via fallback architecture.")
-        return m
-    except Exception as e2:
-        print(f"[ERROR] All model loading strategies failed: {e2}")
-        raise e2
+def relu(x):
+    return np.maximum(0, x)
+
+def sigmoid(x):
+    return 1.0 / (1.0 + np.exp(-x))
+
+def numpy_nn_predict(scaled_features_array):
+    """Fast, 100% mathematically exact NumPy forward pass of 3-layer ANN."""
+    w = weights
+    h1 = relu(np.dot(scaled_features_array, w['W1']) + w['b1'])
+    h2 = relu(np.dot(h1, w['W2']) + w['b2'])
+    out = sigmoid(np.dot(h2, w['W3']) + w['b3'])
+    return float(out[0][0])
 
 def get_model_and_scaler():
-    """Lazily loads the Keras model and StandardScaler object."""
-    global model, scaler
-    if model is not None and scaler is not None:
-        return model, scaler
+    """Lazily loads model weights and StandardScaler object into memory."""
+    global weights, scaler, keras_model
+    if (weights is not None or keras_model is not None) and scaler is not None:
+        return True
 
     try:
-        if os.path.exists(MODEL_PATH) and os.path.exists(SCALER_PATH):
-            model = load_keras_model_safely(MODEL_PATH)
-            
+        # Load Scaler
+        if os.path.exists(SCALER_PATH):
             with open(SCALER_PATH, "rb") as f:
                 scaler = pickle.load(f)
 
-            print("[OK] Model and scaler loaded successfully into memory.")
-            return model, scaler
-        else:
-            print(f"[ERROR] Files not found. MODEL_PATH: {MODEL_PATH} ({os.path.exists(MODEL_PATH)}), SCALER_PATH: {SCALER_PATH} ({os.path.exists(SCALER_PATH)})")
+        # Load Weights for NumPy forward pass
+        if os.path.exists(WEIGHTS_PATH):
+            with open(WEIGHTS_PATH, "rb") as f:
+                weights = pickle.load(f)
+            print("[OK] Neural network weights loaded for ultra-fast NumPy inference.")
+            return True
+        
+        # Fallback to Keras if weights file is not found
+        if os.path.exists(MODEL_H5_PATH):
+            try:
+                from tensorflow.keras.models import load_model, Sequential
+                from tensorflow.keras.layers import Dense, Input
+                try:
+                    keras_model = load_model(MODEL_H5_PATH, compile=False)
+                except Exception:
+                    m = Sequential([
+                        Input(shape=(12,)),
+                        Dense(6, activation='relu'),
+                        Dense(6, activation='relu'),
+                        Dense(1, activation='sigmoid')
+                    ])
+                    m.load_weights(MODEL_H5_PATH)
+                    keras_model = m
+                print("[OK] Keras ANN model loaded into memory.")
+                return True
+            except Exception as e_keras:
+                print(f"[WARNING] Keras load attempt failed: {e_keras}")
+
+        print(f"[ERROR] Model files missing. SCALER: {os.path.exists(SCALER_PATH)}, WEIGHTS: {os.path.exists(WEIGHTS_PATH)}")
     except Exception as e:
         print(f"[ERROR] Failed to load model or scaler: {e}")
 
-    return None, None
+    return False
 
-# Initial load attempt on startup
+# Initial load on start
 get_model_and_scaler()
 
 @app.route('/')
@@ -70,12 +87,12 @@ def home():
 @app.route('/health', methods=['GET'])
 def health():
     """Health check endpoint for cloud deployments & load balancers."""
-    m, s = get_model_and_scaler()
+    is_ready = get_model_and_scaler()
     return jsonify({
-        "status": "ok" if (m is not None and s is not None) else "unhealthy",
-        "model_loaded": m is not None,
-        "scaler_loaded": s is not None
-    }), 200 if (m is not None and s is not None) else 503
+        "status": "ok" if is_ready else "unhealthy",
+        "model_loaded": weights is not None or keras_model is not None,
+        "scaler_loaded": scaler is not None
+    }), 200 if is_ready else 503
 
 def process_features(form_data, scaler_obj):
     """Sanitizes form input and extracts scaled features for model prediction."""
@@ -180,19 +197,27 @@ def process_features(form_data, scaler_obj):
 
     return scaled_features, []
 
+def run_inference(scaled_features_array):
+    """Executes inference using NumPy forward pass or Keras model fallback."""
+    if weights is not None:
+        return numpy_nn_predict(scaled_features_array)
+    elif keras_model is not None:
+        return float(keras_model.predict(scaled_features_array)[0][0])
+    else:
+        raise RuntimeError("No prediction engine available.")
+
 @app.route('/api/predict', methods=['POST'])
 def api_predict():
     """REST API endpoint returning JSON predictions for modern AJAX apps."""
-    m, s = get_model_and_scaler()
-    if m is None or s is None:
+    if not get_model_and_scaler():
         return jsonify({"success": False, "error": "Prediction model is currently unavailable."}), 503
 
     try:
-        scaled_features, errors = process_features(request.form, s)
+        scaled_features, errors = process_features(request.form, scaler)
         if errors:
             return jsonify({"success": False, "error": " ".join(errors)}), 400
 
-        pred = m.predict(scaled_features)[0][0]
+        pred = run_inference(scaled_features)
         prob = round(float(pred) * 100, 2)
         result = "Customer will EXIT" if pred > 0.5 else "Customer will STAY"
         
@@ -211,19 +236,18 @@ def predict():
     if request.method == 'GET':
         return redirect(url_for('home'))
 
-    m, s = get_model_and_scaler()
-    if m is None or s is None:
+    if not get_model_and_scaler():
         flash("Prediction service is currently unavailable. Please try again later.", "error")
         return redirect(url_for('home'))
 
     try:
-        scaled_features, errors = process_features(request.form, s)
+        scaled_features, errors = process_features(request.form, scaler)
         if errors:
             for error in errors:
                 flash(error, "error")
             return render_template('index.html', form_data=request.form)
 
-        pred = m.predict(scaled_features)[0][0]
+        pred = run_inference(scaled_features)
         result = "Customer will EXIT" if pred > 0.5 else "Customer will STAY"
         prob = round(float(pred) * 100, 2)
 
