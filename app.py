@@ -72,6 +72,12 @@ def health():
         "engine_ready": is_ready
     }), 200 if is_ready else 503
 
+@app.route('/api/test_post', methods=['POST'])
+def test_post():
+    """Diagnostic POST endpoint to test Gunicorn request handling."""
+    data = parse_input_data()
+    return jsonify({"success": True, "received_data": data}), 200
+
 def parse_input_data():
     """Robustly extracts parameters whether submitted as Form-Data, Form-Encoded, or JSON."""
     data_dict = {}
