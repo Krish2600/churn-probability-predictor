@@ -88,7 +88,7 @@ model.fit(X_train, y_train, epochs=20, batch_size=32)
 
 loss, accuracy = model.evaluate(X_test, y_test)
 
-print("\n✅ Final Accuracy:", accuracy)
+print("\n[OK] Final Accuracy:", accuracy)
 
 # ==============================
 # SAMPLE PREDICTION

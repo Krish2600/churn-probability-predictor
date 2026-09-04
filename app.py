@@ -2,7 +2,8 @@ from flask import Flask, render_template, request, flash, redirect, url_for, jso
 import numpy as np
 import pickle
 import os
-from tensorflow.keras.models import load_model
+from tensorflow.keras.models import load_model, Sequential
+from tensorflow.keras.layers import Dense, Input
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'super_secret_key_for_churn_predictor')
@@ -16,6 +17,27 @@ SCALER_PATH = os.path.join(BASE_DIR, "scaler.pkl")
 model = None
 scaler = None
 
+def load_keras_model_safely(model_path):
+    """Loads Keras model using direct deserialization or fallback layer weight restoration."""
+    try:
+        return load_model(model_path, compile=False)
+    except Exception as e1:
+        print(f"[WARNING] Standard load_model failed ({e1}), using layer architecture fallback...")
+        
+    try:
+        m = Sequential([
+            Input(shape=(12,)),
+            Dense(units=6, activation='relu'),
+            Dense(units=6, activation='relu'),
+            Dense(units=1, activation='sigmoid')
+        ])
+        m.load_weights(model_path)
+        print("[OK] Keras model weights successfully restored via fallback architecture.")
+        return m
+    except Exception as e2:
+        print(f"[ERROR] All model loading strategies failed: {e2}")
+        raise e2
+
 def get_model_and_scaler():
     """Lazily loads the Keras model and StandardScaler object."""
     global model, scaler
@@ -24,12 +46,8 @@ def get_model_and_scaler():
 
     try:
         if os.path.exists(MODEL_PATH) and os.path.exists(SCALER_PATH):
-            try:
-                model = load_model(MODEL_PATH, compile=False)
-            except Exception as e1:
-                print(f"[WARNING] load_model compile=False failed, attempting standard load: {e1}")
-                model = load_model(MODEL_PATH)
-
+            model = load_keras_model_safely(MODEL_PATH)
+            
             with open(SCALER_PATH, "rb") as f:
                 scaler = pickle.load(f)
 
@@ -42,7 +60,7 @@ def get_model_and_scaler():
 
     return None, None
 
-# Attempt initial load on start
+# Initial load attempt on startup
 get_model_and_scaler()
 
 @app.route('/')
